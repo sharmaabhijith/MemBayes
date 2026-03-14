@@ -1704,3 +1704,69 @@
 16:43:27 [INFO] __main__: [Naive RAG] Step 98/361 — test #14: What is Emil's favorite color?
 16:43:29 [INFO] __main__: [Naive RAG]   → answer=coral, confidence=1.000
 16:43:29 [INFO] __main__: [Naive RAG] Step 99/361 — test #15: What is Sonia's favorite food?
+16:43:32 [INFO] __main__: [Naive RAG]   → answer=velvet porridge, confidence=1.000
+16:43:32 [INFO] __main__: [Naive RAG] Step 100/361 — test #16: Where does Hana live?
+16:43:36 [INFO] __main__: [Naive RAG]   → answer=Karvossa, confidence=1.000
+16:43:36 [INFO] __main__: [Naive RAG] Progress: 100/361 items (interactions=84, tests=16, forgets=0)
+16:43:36 [INFO] __main__: [Naive RAG] Step 101/361 — test #17: What is Zara's favorite food?
+16:43:39 [INFO] __main__: [Naive RAG]   → answer=dewmelon tart, confidence=1.000
+16:43:39 [INFO] __main__: [Naive RAG] Step 102/361 — test #18: What is Lian's favorite food?
+16:43:43 [INFO] __main__: [Naive RAG]   → answer=sunpetal salad, confidence=1.000
+16:43:43 [INFO] __main__: [Naive RAG] Step 103/361 — test #19: What is Lian's favorite color?
+16:43:47 [INFO] __main__: [Naive RAG]   → answer=mauve, confidence=1.000
+16:43:47 [INFO] __main__: [Naive RAG] Step 104/361 — test #20: What is Ravi's favorite color?
+16:43:51 [INFO] __main__: [Naive RAG]   → answer=coral, confidence=1.000
+16:43:51 [INFO] __main__: [Naive RAG] Step 105/361 — test #21: What is Zara's hobby?
+16:43:54 [INFO] __main__: [Naive RAG]   → answer=dustcarving, confidence=1.000
+16:43:54 [INFO] __main__: [Naive RAG] Step 106/361 — test #22: What is Yuki's hobby?
+16:43:57 [INFO] __main__: [Naive RAG]   → answer=echosculpting, confidence=1.000
+16:43:57 [INFO] __main__: [Naive RAG] Step 107/361 — test #23: Where does Okon live?
+16:44:00 [INFO] __main__: [Naive RAG]   → answer=Zenthari, confidence=1.000
+16:44:00 [INFO] __main__: [Naive RAG] Step 108/361 — test #24: What is Tomas's hobby?
+16:44:03 [INFO] __main__: [Naive RAG]   → answer=tide-reading, confidence=1.000
+16:44:03 [INFO] __main__: [Naive RAG] Step 109/361 — test #25: What is Okon's favorite color?
+16:44:06 [INFO] __main__: [Naive RAG]   → answer=indigo, confidence=1.000
+16:44:06 [INFO] __main__: [Naive RAG] Step 110/361 — test #26: What is Yuki's favorite color?
+16:44:09 [INFO] __main__: [Naive RAG]   → answer=obsidian, confidence=1.000
+16:44:09 [INFO] __main__: [Naive RAG] Step 111/361 — test #27: What is Zara's favorite color?
+16:44:12 [INFO] __main__: [Naive RAG]   → answer=chartreuse, confidence=1.000
+16:44:12 [INFO] __main__: [Naive RAG] Step 112/361 — test #28: What is Ravi's hobby?
+16:44:15 [INFO] __main__: [Naive RAG]   → answer=rootbending, confidence=1.000
+16:44:15 [INFO] __main__: [Naive RAG] Step 113/361 — test #29: What is Priya's favorite food?
+16:44:18 [INFO] __main__: [Naive RAG]   → answer=ashroot soup, confidence=1.000
+16:44:18 [INFO] __main__: [Naive RAG] Step 114/361 — test #30: What is Sonia's hobby?
+16:44:21 [INFO] __main__: [Naive RAG]   → answer=stone-whispering, confidence=1.000
+16:44:21 [INFO] __main__: [Naive RAG] Step 115/361 — test #31: What does Ravi do for a living?
+16:44:24 [INFO] __main__: [Naive RAG]   → answer=wavesmith, confidence=1.000
+16:44:24 [INFO] __main__: [Naive RAG] Step 116/361 — test #32: What does Okon do for a living?
+16:44:27 [INFO] __main__: [Naive RAG]   → answer=starcharist, confidence=1.000
+16:44:27 [INFO] __main__: [Naive RAG] Step 117/361 — test #33: What is Hana's favorite color?
+16:44:30 [INFO] __main__: [Naive RAG]   → answer=chartreuse, confidence=1.000
+16:44:30 [INFO] __main__: [Naive RAG] Step 118/361 — test #34: What is Lian's hobby?
+16:44:34 [INFO] __main__: [Naive RAG]   → answer=echosculpting, confidence=1.000
+16:44:34 [INFO] __main__: [Naive RAG] Step 119/361 — test #35: What is Priya's favorite color?
+16:44:37 [INFO] __main__: [Naive RAG]   → answer=amber, confidence=1.000
+16:44:37 [INFO] __main__: [Naive RAG] Step 120/361 — test #36: What does Hana do in their free time?
+16:44:40 [INFO] __main__: [Naive RAG]   → answer=stone-whispering, confidence=1.000
+16:44:40 [INFO] __main__: [Naive RAG] Step 121/361 — test #37: What does Sonia do in their free time?
+16:44:43 [INFO] __main__: [Naive RAG]   → answer=stone-whispering, confidence=1.000
+16:44:43 [INFO] __main__: [Naive RAG] Step 122/361 — test #38: What job does Hana have?
+16:44:46 [INFO] __main__: [Naive RAG]   → answer=glowforge operator, confidence=1.000
+16:44:46 [INFO] __main__: [Naive RAG] Step 123/361 — test #39: What activity does Okon enjoy?
+16:44:49 [INFO] __main__: [Naive RAG]   → answer=moonweaving, confidence=1.000
+16:44:49 [INFO] __main__: [Naive RAG] Step 124/361 — test #40: What does Lian like to eat the most?
+16:44:52 [INFO] __main__: [Naive RAG]   → answer=sunpetal salad, confidence=1.000
+16:44:52 [INFO] __main__: [Naive RAG] Step 125/361 — test #41: Which color does Hana prefer?
+16:44:55 [INFO] __main__: [Naive RAG]   → answer=chartreuse, confidence=1.000
+16:44:55 [INFO] __main__: [Naive RAG] Step 126/361 — test #42: What food does Zara prefer?
+16:44:58 [INFO] __main__: [Naive RAG]   → answer=dewmelon tart, confidence=1.000
+16:44:58 [INFO] __main__: [Naive RAG] Step 127/361 — test #43: In which place does Tomas reside?
+16:45:01 [INFO] __main__: [Naive RAG]   → answer=velthun, confidence=1.000
+16:45:01 [INFO] __main__: [Naive RAG] Step 128/361 — test #44: What job does Okon have?
+16:45:04 [INFO] __main__: [Naive RAG]   → answer=starcharist, confidence=1.000
+16:45:04 [INFO] __main__: [Naive RAG] Step 129/361 — test #45: How does Priya spend their leisure time?
+16:45:07 [INFO] __main__: [Naive RAG]   → answer=sand-singing, confidence=1.000
+16:45:07 [INFO] __main__: [Naive RAG] Step 130/361 — interaction #85: Can confirm — Sonia is indeed from Nelmoor.
+16:45:18 [INFO] __main__: [Naive RAG] Step 131/361 — interaction #86: Yeah, Ravi definitely loves velvet porridge, they mentioned it again.
+16:45:36 [INFO] __main__: [Naive RAG] Step 132/361 — interaction #87: Priya was wearing amber again — clearly their favorite.
+16:45:52 [INFO] __main__: [Naive RAG] Step 133/361 — interaction #88: Can confirm — Okon is indeed from Zenthari.
