@@ -1,2 +1,4 @@
 .env
 slurm_logs/
+results/
+.claude
