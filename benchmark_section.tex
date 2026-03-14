@@ -1,0 +1,226 @@
+% ══════════════════════════════════════════════════════════════════
+% This section is designed to be \input{benchmark_section} into main.tex
+% It assumes the preamble from main.tex (neurips, amsmath, algorithm,
+% booktabs, cleveref, tikz, color definitions, \membayes, \logodds, etc.)
+% ══════════════════════════════════════════════════════════════════
+
+\section{Experimental Evaluation}
+\label{sec:experiments}
+
+Evaluating a memory system requires more than measuring accuracy: we must verify that confidence tracks reality (calibration), that the mathematical guarantees from \Cref{sec:analysis} hold empirically, and that the full three-layer pipeline---retrieval, semantic classification, Bayesian update---functions correctly end-to-end. We design a controlled benchmark that tests nine hypotheses, compare \membayes{} against three baselines and two ablations, and report accuracy, calibration, and Bayesian consistency.
+
+\subsection{Design Principles}
+\label{sec:bench-design}
+
+Three principles guide the benchmark design.
+
+\paragraph{No ground-truth shortcuts.}
+The system receives only plain natural-language text. Unlike prior memory evaluations that supply structured metadata (e.g., a \texttt{fact\_id} or \texttt{interaction\_type} tag), our benchmark requires the system to \emph{discover} which memories are relevant through its retrieval layer, \emph{classify} the relationship via its semantic layer, and \emph{update} confidence through its Bayesian layer. This tests the full pipeline, not just the mathematical engine.
+
+\paragraph{Synthetic vocabulary.}
+All entities, places, foods, hobbies, and occupations are drawn from a synthetic lexicon (e.g., ``Zara,'' ``Karvossa,'' ``grillberry stew,'' ``fog-painting,'' ``chronosmith''). This prevents the LLM from answering test probes from pretraining knowledge rather than from stored memory, isolating the memory system's contribution.
+
+\paragraph{Controlled experimental phases.}
+The interaction stream is organized into sequential phases, each designed to activate a specific Bayesian property. By interleaving test probes between phases, we capture the system's belief state at each critical transition.
+
+
+\subsection{Fact Pool and Interaction Stream}
+\label{sec:bench-facts}
+
+\paragraph{Fact pool.}
+We generate 35 synthetic facts across 10 entities and 5 attribute types (\texttt{favorite\_food}, \texttt{hometown}, \texttt{hobby}, \texttt{favorite\_color}, \texttt{occupation}). Each entity receives 3--4 facts spanning different attribute categories, ensuring diversity in prior strengths and decay rates. The 35 facts are partitioned into four groups:
+
+\begin{itemize}[nosep,leftmargin=1.5em]
+  \item \textbf{Reinforced} (7 facts): presented once, then repeated 3 additional times using varied natural-language templates.
+  \item \textbf{Contradicted} (7 facts): presented once, then explicitly contradicted with a new value drawn from the same attribute pool.
+  \item \textbf{Forget targets} (3 facts): presented once, then explicitly deleted via a forget command.
+  \item \textbf{Stable} (18 facts): presented once and never touched again.
+\end{itemize}
+
+\paragraph{Natural-language templates.}
+Each attribute type has multiple templates for presentation, reinforcement, contradiction, and querying. Templates are randomized per interaction to prevent the system from relying on surface-level pattern matching:
+
+\smallskip
+\noindent
+\begin{tabular}{@{}l l@{}}
+  \textbf{Present:}     & ``I found out that \{entity\}'s favorite dish is \{value\}.'' \\
+  \textbf{Reinforce:}   & ``Someone else confirmed that \{entity\}'s go-to meal is \{value\}.'' \\
+  \textbf{Contradict:}  & ``Correction: \{entity\}'s favorite food is actually \{new\}, not \{old\}.'' \\
+  \textbf{Query:}       & ``What does \{entity\} like to eat the most?'' \\
+\end{tabular}
+
+\smallskip
+\noindent Reinforcement templates are deliberately varied (not verbatim repetitions) to test whether the semantic layer correctly identifies them as confirming evidence.
+
+\paragraph{Filler interactions.}
+General-knowledge questions (``How do magnets work?'', ``What causes thunder?'') are interleaved between entity-bearing interactions. These serve two purposes: (1)~they advance the step counter, creating temporal gaps that activate decay, and (2)~they test whether the system correctly recognizes that they contain no memorable entity-specific information and avoids creating spurious memory entries.
+
+\subsection{Benchmark Phases}
+\label{sec:bench-phases}
+
+The benchmark consists of 10 phases spanning ${\sim}360$ steps. \Cref{tab:phases} summarizes the structure.
+
+\begin{table}[t]
+  \centering
+  \caption{Benchmark phases. Each phase targets specific hypotheses and produces a controlled experimental condition. Filler interactions are interleaved throughout to simulate realistic conversation flow.}
+  \label{tab:phases}
+  \small
+  \begin{tabular}{@{}c l c c l@{}}
+    \toprule
+    \textbf{Phase} & \textbf{Description} & \textbf{Steps} & \textbf{Tests} & \textbf{Hypotheses} \\
+    \midrule
+    \rowcolor{nodeGray}
+    1 & Initial presentation of all 35 facts & ${\sim}70$ & --- & --- \\
+    2 & Immediate recall & 35 & 35 & H1, H8 \\
+    \rowcolor{nodeGray}
+      & Paraphrased recall (10 sampled) & 10 & 10 & H8 \\
+    3 & Reinforcement (7 facts $\times$ 3 rounds) & ${\sim}30$ & --- & --- \\
+    \rowcolor{nodeGray}
+    4 & Post-reinforcement recall & 35 & 35 & H2 \\
+    5 & Contradiction (7 facts) & ${\sim}12$ & --- & --- \\
+    \rowcolor{nodeGray}
+    6 & Post-contradiction recall & 35 & 35 & H3 \\
+    7 & Long delay (70 fillers) & 70 & --- & --- \\
+    \rowcolor{nodeGray}
+    8 & Forgetting curve recall & 35 & 35 & H4 \\
+    9 & Selective forget (3 commands) & 3 & 6 & H7 \\
+    \rowcolor{nodeGray}
+    10 & Distractor recall (5 pairs) & --- & 5 & H9 \\
+    \midrule
+    & \textbf{Total} & ${\sim}360$ & ${\sim}161$ & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Phase 1: Initial presentation.}
+All 35 facts are presented once in random order, each followed by 1--2 filler interactions. This establishes the base memory state with category-specific initial confidence $\sigmoid(\logodds_0(a_k))$.
+
+\paragraph{Phase 2: Immediate recall (H1, H8).}
+Every fact is queried once using a direct question template (H1). Additionally, 10 facts are queried using \emph{paraphrased} templates---semantically equivalent but lexically different questions---to test retrieval robustness (H8). For example, ``What is Zara's favorite food?'' versus ``If Zara could only eat one dish, what would it be?''
+
+\paragraph{Phase 3: Reinforcement.}
+The 7 reinforced facts are repeated 3 times each, using varied reinforcement templates drawn from a separate template pool. This tests whether the semantic layer correctly classifies the varied phrasings as confirming evidence and whether the Bayesian layer accumulates log-odds accordingly.
+
+\paragraph{Phase 4: Post-reinforcement recall (H2).}
+All 35 facts are queried again. Reinforced facts should exhibit \emph{higher} confidence than unreinforced facts, validating monotone reinforcement (P1). Unreinforced facts should still be retrievable but with lower confidence due to intervening temporal decay.
+
+\paragraph{Phase 5: Contradiction.}
+The 7 contradicted facts receive new values via explicit contradiction templates. This tests the full contradiction pipeline: the semantic layer must classify the input as contradicting, the Bayesian layer must decrease log-odds and potentially trigger value replacement at the decision boundary $\tau_r = 0.5$, and the dependency graph must propagate uncertainty to related entries.
+
+\paragraph{Phase 6: Post-contradiction recall (H3).}
+All 35 facts are queried. Contradicted facts should return the \emph{new} value with moderate confidence (reset after replacement). Non-contradicted facts should be unaffected.
+
+\paragraph{Phase 7: Long delay.}
+Seventy consecutive filler interactions with no entity-bearing content. This creates a temporal gap of $\Delta t = 70$ steps, sufficient for transient memories ($\lambda = 0.1$, half-life ${\sim}7$ steps) to decay to near-zero and for even preference memories ($\lambda = 0.008$, half-life ${\sim}87$~steps) to lose measurable confidence.
+
+\paragraph{Phase 8: Forgetting curve recall (H4).}
+All 35 facts are queried after the long delay. Reinforced facts should retain higher confidence than unreinforced facts due to both higher accumulated log-odds and access-modulated decay reduction. The coreset ablation (H6) is tested by comparing VCL (full) against VCL (no~coreset) on this phase.
+
+\paragraph{Phase 9: Selective forget (H7).}
+Three facts receive explicit forget commands. We then query both the forgotten targets (expected answer: ``I don't have that information'') and their entity neighbors---facts about the same entity but different attributes---which should be unaffected. This tests targeted forgetting without collateral damage (P6).
+
+\paragraph{Phase 10: Distractor recall (H9).}
+Five fact pairs sharing the same attribute type but belonging to different entities are selected (e.g., Zara's hometown vs.\ Yuki's hometown). The system is queried about one entity and must return that entity's value, not the other's. This tests whether the retrieval layer's entity index correctly disambiguates similar facts.
+
+
+\subsection{Hypotheses}
+\label{sec:hypotheses}
+
+The benchmark tests nine hypotheses, each linked to a formal property or system component:
+
+\begin{table}[t]
+  \centering
+  \caption{Hypotheses tested by the benchmark. Each hypothesis maps to a formal property from \Cref{sec:analysis} or a system component.}
+  \label{tab:hypotheses}
+  \small
+  \begin{tabular}{@{}c l l l@{}}
+    \toprule
+    & \textbf{Hypothesis} & \textbf{Property / Component} & \textbf{Measured by} \\
+    \midrule
+    \rowcolor{nodeGray}
+    H1 & Retention across intervening interactions & Basic storage + retrieval & Immediate recall accuracy \\
+    H2 & Reinforcement increases confidence & P1 (monotone reinforcement) & $\bar{c}_{\text{reinforced}} > \bar{c}_{\text{unreinforced}}$ \\
+    \rowcolor{nodeGray}
+    H3 & Contradiction updates value correctly & P2 + value replacement & Post-contradiction accuracy \\
+    H4 & Confidence decays over time & P3 (asymptotic decay) & $\bar{c}_{\text{post-delay}} < \bar{c}_{\text{immediate}}$ \\
+    \rowcolor{nodeGray}
+    H5 & Confidence predicts accuracy & Calibration & ECE $< 0.15$ \\
+    H6 & Coreset improves long-term retention & Episodic replay & VCL vs.\ VCL (no coreset) on H4 \\
+    \rowcolor{nodeGray}
+    H7 & Selective forget without collateral & P6 (targeted forgetting) & Target forgotten, neighbor retained \\
+    H8 & Retrieval handles paraphrased queries & Retrieval layer & Paraphrased recall accuracy \\
+    \rowcolor{nodeGray}
+    H9 & Similar facts don't interfere & Entity disambiguation & Distractor recall accuracy \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
+\subsection{Baselines and Ablations}
+\label{sec:baselines}
+
+We compare \membayes{} against three baselines and two ablations. All systems share the same LLM (Qwen3-14B via DeepInfra) for semantic understanding and the same embedding model (OpenAI \texttt{text-embedding-3-large}) for retrieval. The \emph{only} difference is the memory management strategy.
+
+\begin{table}[t]
+  \centering
+  \caption{Systems under evaluation. All share the same LLM and embedding model; only the memory management strategy differs.}
+  \label{tab:systems}
+  \small
+  \begin{tabular}{@{}l l l@{}}
+    \toprule
+    \textbf{System} & \textbf{Type} & \textbf{What it isolates} \\
+    \midrule
+    \rowcolor{nodeGray}
+    \membayes{} (full)         & Full system     & All components active \\
+    \membayes{} (no coreset)   & Ablation        & Value of episodic replay (H6) \\
+    \rowcolor{nodeGray}
+    \membayes{} (no decay)     & Ablation        & Value of temporal decay (H4) \\
+    Naive RAG                  & Baseline        & No confidence tracking; $c_k = 1.0$ always \\
+    \rowcolor{nodeGray}
+    Sliding Window             & Baseline        & Keep last 30 interactions in context \\
+    Decay Only                 & Baseline        & Decay without Bayesian accumulation \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Naive RAG.}
+Stores all facts with fixed confidence $c_k = 1.0$. Contradictions immediately overwrite the value (last-write-wins) without confidence reduction. This represents the standard retrieval-augmented generation approach: every stored fact is treated as equally valid. The system uses the same retrieval and semantic layers as \membayes{}, isolating the contribution of confidence tracking.
+
+\paragraph{Sliding Window.}
+Maintains a buffer of the 30 most recent interactions. At query time, all buffered interactions are concatenated into the LLM context, which is asked to answer from this context. No persistent memory, no structured storage. This simulates the common pattern of ``stuffing recent messages into the context window'' and tests whether structured memory management provides value over brute-force recency.
+
+\paragraph{Decay Only.}
+Uses the same retrieval, semantic, and decay mechanisms as \membayes{}, but confirmations do \emph{not} increase log-odds---they only refresh the access timestamp. Contradictions immediately replace the value and reset confidence to the category default. No coreset replay, no dependency propagation, no bounded updates. This isolates the contribution of Bayesian evidence accumulation.
+
+\paragraph{Ablation: no coreset.}
+Full \membayes{} with the episodic buffer disabled (\texttt{use\_coreset=False}). All other components---retrieval, classification, Bayesian updates, decay, dependency propagation---remain active. Comparing against the full system measures the contribution of importance-weighted replay to long-term retention (H6).
+
+\paragraph{Ablation: no decay.}
+Full \membayes{} with all decay rates set to zero ($\lambda_a = 0$ for all categories $a$). Confidence never decreases from temporal effects, only from contradicting evidence. This isolates the contribution of adaptive decay (H4) and tests whether the system can express calibrated uncertainty about stale information.
+
+
+\subsection{Evaluation Metrics}
+\label{sec:metrics}
+
+\paragraph{Accuracy.}
+For each test probe, the system's answer is compared against the ground-truth expected value using substring matching. For forgotten facts, a response indicating lack of knowledge (e.g., ``I don't have that information'') is scored as correct. We report overall accuracy and per-hypothesis accuracy.
+
+\paragraph{Expected Calibration Error (ECE).}
+Confidence scores are only meaningful if they predict accuracy. We compute ECE with 10 equal-width bins:
+\begin{equation}
+  \mathrm{ECE} = \sum_{b=1}^{B} \frac{|B_b|}{N} \cdot \big|\mathrm{acc}(B_b) - \mathrm{conf}(B_b)\big|,
+  \label{eq:ece}
+\end{equation}
+where $B_b$ is the set of predictions in bin $b$, $\mathrm{acc}(B_b)$ is the empirical accuracy within the bin, and $\mathrm{conf}(B_b)$ is the mean predicted confidence. A perfectly calibrated system has $\mathrm{ECE} = 0$.
+
+\paragraph{Bayesian consistency checks.}
+Three directional checks verify the formal guarantees from \Cref{sec:analysis}:
+\begin{enumerate}[nosep,leftmargin=1.5em]
+  \item \textbf{Reinforcement $\uparrow$ confidence}: mean confidence after reinforcement exceeds mean confidence at immediate recall (P1).
+  \item \textbf{Contradiction $\downarrow$ confidence}: mean confidence after contradiction is lower than after reinforcement (P2).
+  \item \textbf{Delay $\downarrow$ confidence}: mean confidence after the 70-step delay is lower than at immediate recall (P3).
+\end{enumerate}
+A system passes a check if the inequality holds across all test probes in the relevant phases.
+
+\paragraph{Per-hypothesis breakdown.}
+Accuracy and mean confidence are reported separately for each hypothesis (H1--H9), enabling fine-grained analysis of which system component or Bayesian property contributes most to performance.

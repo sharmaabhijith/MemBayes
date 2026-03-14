@@ -1,0 +1,58 @@
+============================================================
+  MemBayes Benchmark Experiments
+============================================================
+
+[1/3] Loading benchmark...
+  Loaded from results/benchmark.json
+  35 facts, 10 entities
+  197 interactions, 161 tests, 3 forgets
+
+  Initializing LLM client...
+  Chat: Qwen/Qwen3-14B via DeepInfra
+  Embeddings: text-embedding-3-large via OpenAI
+
+[2/3] Running systems...
+  Running: VCL (full)... acc=0.702  ECE=0.2799  (2275.8s)
+  Running: VCL (no coreset)... acc=0.720  ECE=0.2953  (2036.4s)
+  Running: VCL (no decay)... acc=0.807  ECE=0.1059  (2159.0s)
+  Running: Naive RAG... acc=0.776  ECE=0.2236  (2216.0s)
+  Running: Sliding Window... acc=0.211  ECE=0.0289  (216.8s)
+  Running: Decay Only... acc=0.764  ECE=0.3004  (1981.9s)
+
+[3/3] Generating results...
+
+==========================================================================================
+  EXPERIMENT RESULTS
+==========================================================================================
+
+System                      Accuracy        ECE
+--------------------------------------------------
+VCL (full)                     0.702     0.2799
+VCL (no coreset)               0.720     0.2953
+VCL (no decay)                 0.807     0.1059
+Naive RAG                      0.776     0.2236
+Sliding Window                 0.211     0.0289
+Decay Only                     0.764     0.3004
+
+Hypothesis          VCL (full) VCL (no corese VCL (no decay)      Naive RAG Sliding Window     Decay Only
+---------------------------------------------------------------------------------------------------------
+H1                       0.971          0.971          1.000          0.971          0.286          0.943
+H2                       0.743          0.771          0.829          0.857          0.200          0.857
+H3                       0.514          0.514          0.686          0.629          0.371          0.629
+H4                       0.514          0.571          0.686          0.629          0.000          0.600
+H7                       0.833          0.833          0.833          0.833          0.500          0.833
+H8                       1.000          1.000          1.000          1.000          0.100          1.000
+H9                       0.400          0.400          0.600          0.400          0.000          0.400
+
+Bayesian Check                               VCL (full) VCL (no corese VCL (no decay)      Naive RAG Sliding Window     Decay Only
+----------------------------------------------------------------------------------------------------------------------------------
+Reinforcement Increases Confidence                 PASS           PASS           PASS           FAIL           FAIL           FAIL
+Contradiction Decreases Confidence                 FAIL           FAIL           PASS           FAIL           FAIL           FAIL
+Delay Decreases Confidence                         PASS           PASS           FAIL           FAIL           PASS           PASS
+  Plots saved to results/
+
+  LLM usage: 6521 chat calls, 1944 embedding calls
+
+============================================================
+  Done! Results saved to results/
+============================================================
