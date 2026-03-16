@@ -123,6 +123,7 @@ class BayesianLayer:
         # Apply exponential decay
         decay_factor = math.exp(-lambda_eff * dt)
         entry.log_odds *= decay_factor
+        entry.last_accessed = current_step
         entry.update_confidence()
 
         # Threshold checks

@@ -227,13 +227,16 @@ class RetrievalLayer:
 
     def get_candidates(self, query_embedding: Optional[list[float]],
                        entity_id: Optional[str],
-                       entries: dict[str, MemoryEntry]) -> list[str]:
+                       entries: dict[str, MemoryEntry],
+                       include_forgotten: bool = False) -> list[str]:
         """Retrieve bounded candidate set C(x) from all indices.
 
         Args:
             query_embedding: embedding of the incoming interaction (may be None)
             entity_id: extracted entity identifier (may be None)
             entries: full memory store for confidence filtering
+            include_forgotten: if True, also return forgotten tombstones
+                (used at query time to detect explicitly forgotten facts)
 
         Returns:
             List of entry IDs, |result| ≤ config.candidate_budget
@@ -268,12 +271,25 @@ class RetrievalLayer:
                 entry = entries[eid]
                 if entry.is_active and entry.confidence > self.config.retrieval_threshold:
                     filtered.append(eid)
+                elif include_forgotten and entry.status == "forgotten":
+                    filtered.append(eid)
 
         # Budget limit
         return filtered[:N]
 
     def prune_inactive(self, entries: dict[str, MemoryEntry]):
-        """Remove decayed/forgotten entries from indices (periodic maintenance)."""
+        """Remove decayed entries from indices (periodic maintenance).
+
+        Forgotten entries are kept in the entity index as tombstones
+        so queries can detect explicitly forgotten facts.
+        """
         for eid, entry in list(entries.items()):
-            if entry.status in ("decayed", "forgotten"):
+            if entry.status == "decayed":
                 self.remove_entry(entry)
+            elif entry.status == "forgotten":
+                # Only remove from embedding and cluster indices,
+                # keep in entity index as tombstone
+                self.embedding_index.remove(entry.entry_id)
+                if entry.entity_id and entry.cluster_id >= 0:
+                    self.cluster_index.remove_entry(
+                        entry.entity_id, entry.cluster_id, entry.entry_id)

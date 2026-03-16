@@ -105,7 +105,7 @@ class DependencyGraph:
 
         while queue:
             entry_id, depth = queue.popleft()
-            if entry_id in visited or depth > d_max:
+            if entry_id in visited or depth >= d_max:
                 continue
             visited.add(entry_id)
 
@@ -122,11 +122,10 @@ class DependencyGraph:
             entry.update_confidence()
             updates.append((entry_id, penalty))
 
-            # If this pushed below threshold, propagate further
-            if entry.confidence < self.config.replacement_threshold:
-                for child_id in self._children.get(entry_id, set()):
-                    if child_id not in visited:
-                        queue.append((child_id, depth + 1))
+            # Always propagate to children within depth limit
+            for child_id in self._children.get(entry_id, set()):
+                if child_id not in visited:
+                    queue.append((child_id, depth + 1))
 
         if updates:
             logger.debug(

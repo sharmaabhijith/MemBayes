@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """
-Baselines for MemBayes Benchmark
+Baselines for MemBayes Evaluation
 ==================================
 
 All baselines share the same LLM client for semantic understanding.
@@ -20,7 +20,6 @@ import math
 import logging
 from abc import ABC, abstractmethod
 from collections import deque
-from dataclasses import replace
 from typing import Optional
 
 from membayes.config import VCLConfig
@@ -86,7 +85,7 @@ class NaiveRAGMemory(BaseMemory):
 
         if not candidate_ids:
             if not entity_id:
-                return  # No entity and no candidates — skip filler
+                return
             self._create_entry(text, embedding)
             return
 
@@ -102,7 +101,6 @@ class NaiveRAGMemory(BaseMemory):
                 found_match = True
 
             elif action == "contradict":
-                # Last-write-wins: immediately replace value
                 new_value = classification.get("new_value")
                 if new_value:
                     entry.value = new_value
@@ -130,7 +128,7 @@ class NaiveRAGMemory(BaseMemory):
             entity_id=extracted.get("entity", ""),
             attribute_type=extracted.get("attribute_type", "preference"),
             embedding=embedding,
-            log_odds=10.0,  # fixed high confidence
+            log_odds=10.0,
             confidence=1.0,
             created_at=self.step,
             last_accessed=self.step,
@@ -225,10 +223,10 @@ class SlidingWindowMemory(BaseMemory):
 
     def forget(self, text: str, step: int):
         self.step = step
-        # Remove matching interactions from window
         self.forgotten.add(text.lower().strip())
         self.window = deque(
-            [(t, s) for t, s in self.window if t.lower().strip() not in self.forgotten],
+            [(t, s) for t, s in self.window
+             if t.lower().strip() not in self.forgotten],
             maxlen=self.window.maxlen,
         )
 
@@ -297,12 +295,15 @@ class DecayOnlyMemory(BaseMemory):
             if dt <= 0:
                 continue
             lambda_base = self.config.get_decay_rate(entry.attribute_type)
-            n_access = min(entry.access_count, self.config.access_modulation_cap)
-            modifier = math.exp(-self.config.access_modulation_strength * n_access)
+            n_access = min(entry.access_count,
+                           self.config.access_modulation_cap)
+            modifier = math.exp(
+                -self.config.access_modulation_strength * n_access)
             lambda_eff = lambda_base * modifier
             decay_factor = math.exp(-lambda_eff * dt)
             entry.log_odds *= decay_factor
             entry.confidence = 1.0 / (1.0 + math.exp(-entry.log_odds))
+            entry.last_accessed = self.step
             if entry.confidence < self.config.hard_decay_threshold:
                 entry.status = "decayed"
             elif entry.confidence < self.config.soft_decay_threshold:
@@ -321,7 +322,7 @@ class DecayOnlyMemory(BaseMemory):
 
         if not candidate_ids:
             if not entity_id:
-                return  # No entity and no candidates — skip filler
+                return
             self._create_entry(text, embedding)
             return
 
@@ -332,13 +333,11 @@ class DecayOnlyMemory(BaseMemory):
             action = classification["classification"]
 
             if action == "confirm":
-                # Only refresh timestamp — no log-odds increase
                 entry.last_accessed = step
                 entry.access_count += 1
                 found_match = True
 
             elif action == "contradict":
-                # Immediately replace value, reset confidence
                 new_value = classification.get("new_value")
                 if new_value:
                     entry.value = new_value
@@ -346,7 +345,8 @@ class DecayOnlyMemory(BaseMemory):
                     new_emb = self.llm_client.embed_single(text)
                     entry.embedding = new_emb
                     self.retrieval.update_embedding(entry)
-                cat_log_odds = self.config.get_initial_log_odds(entry.attribute_type)
+                cat_log_odds = self.config.get_initial_log_odds(
+                    entry.attribute_type)
                 entry.log_odds = cat_log_odds
                 entry.confidence = 1.0 / (1.0 + math.exp(-entry.log_odds))
                 entry.last_accessed = step
@@ -403,10 +403,12 @@ class DecayOnlyMemory(BaseMemory):
 
         candidates = [
             self.entries[cid] for cid in candidate_ids
-            if cid in self.entries and self.entries[cid].status not in ("decayed", "forgotten")
+            if cid in self.entries
+            and self.entries[cid].status not in ("decayed", "forgotten")
         ]
         if not candidates:
-            return {"answer": "I don't have that information", "confidence": 0.0}
+            return {"answer": "I don't have that information",
+                    "confidence": 0.0}
 
         result = self.semantic.answer_query(question, candidates)
         matched_id = result.get("entry_id")

@@ -2,3 +2,5 @@
 slurm_logs/
 results/
 .claude
+*.pyc
+__pycache__/

@@ -99,8 +99,9 @@ class VCLMemory:
         self.step = step
         affected_ids: list[str] = []
 
-        # Step 1: Adaptive temporal decay on all active entries
-        self.bayesian.apply_decay_all(self.entries, self.step)
+        # Step 1: Decay is now deferred to periodic maintenance (every
+        # replay_interval steps) so that confirmations land at full
+        # strength before decay erodes them.
 
         # Step 2: Compute embedding for incoming text
         query_embedding = self._compute_embedding(text)
@@ -183,8 +184,12 @@ class VCLMemory:
             # If the text matches (confirm or contradict), this is the target
             if classification["classification"] in ("confirm", "contradict"):
                 self.bayesian.apply_forget(entry)
-                self.retrieval.remove_entry(entry)
-                logger.debug("Forgot entry %s: %s", cid, entry.key)
+                # Remove from embedding index so it won't match by similarity,
+                # but keep in entity index as a tombstone so entity-based
+                # queries can detect the forgotten fact.
+                self.retrieval.embedding_index.remove(entry.entry_id)
+                logger.debug("Forgot entry %s (tombstone kept): %s",
+                             cid, entry.key)
 
     def answer_query(self, question: str) -> dict:
         """Answer a question using retrieval + confidence-weighted ranking.
@@ -207,9 +212,11 @@ class VCLMemory:
         # Step 2: Extract entity hint
         entity_id = self.semantic.extract_entity(question)
 
-        # Step 3: Retrieve candidates
+        # Step 3: Retrieve candidates (include forgotten tombstones so we
+        # can detect explicitly forgotten facts)
         candidate_ids = self.retrieval.get_candidates(
-            query_embedding, entity_id, self.entries
+            query_embedding, entity_id, self.entries,
+            include_forgotten=True,
         )
 
         if not candidate_ids:
@@ -218,20 +225,32 @@ class VCLMemory:
                 "confidence": 0.0,
             }
 
-        # Step 4: Build candidate list of queryable entries
-        candidates = [
+        # Step 4: Check for forgotten tombstones — if the best semantic
+        # match for this entity+attribute was explicitly forgotten, return
+        # "I don't have that information" instead of falling through.
+        all_matched = [
             self.entries[cid] for cid in candidate_ids
-            if cid in self.entries and self.entries[cid].is_queryable
+            if cid in self.entries
         ]
+        queryable = [e for e in all_matched if e.is_queryable]
+        forgotten = [e for e in all_matched if e.status == "forgotten"]
 
-        if not candidates:
+        # If there are forgotten entries but no queryable ones for this
+        # query, the user explicitly forgot this fact.
+        if forgotten and not queryable:
             return {
                 "answer": "I don't have that information",
                 "confidence": 0.0,
             }
 
-        # Step 5: Use Semantic Layer to pick best match
-        result = self.semantic.answer_query(question, candidates)
+        if not queryable:
+            return {
+                "answer": "I don't have that information",
+                "confidence": 0.0,
+            }
+
+        # Step 5: Use Semantic Layer to pick best match from queryable entries
+        result = self.semantic.answer_query(question, queryable)
 
         matched_id = result.get("entry_id")
         if matched_id and matched_id in self.entries:
@@ -250,8 +269,20 @@ class VCLMemory:
                 "entry_id": matched_id,
             }
 
-        # Fallback: highest confidence candidate
-        best = max(candidates, key=lambda e: e.confidence)
+        # Fallback: check if we should prefer a forgotten match
+        # (e.g., the LLM didn't pick any entry but there's a tombstone)
+        if forgotten:
+            # Use semantic layer to check if the question matches any
+            # forgotten entry — if so, this fact was explicitly forgotten
+            forgotten_result = self.semantic.answer_query(question, forgotten)
+            if forgotten_result.get("entry_id"):
+                return {
+                    "answer": "I don't have that information",
+                    "confidence": 0.0,
+                }
+
+        # Fallback: highest confidence queryable candidate
+        best = max(queryable, key=lambda e: e.confidence)
         best.last_accessed = self.step
         best.access_count += 1
         return {
@@ -366,8 +397,12 @@ class VCLMemory:
     # ── Periodic Maintenance ──────────────────────────────────────────────
 
     def _periodic_maintenance(self):
-        """Step 8: Coreset replay, consolidation check, index maintenance."""
-        # Coreset replay with diminishing returns
+        """Step 8: Decay, coreset replay, consolidation check, index maintenance."""
+        # Adaptive temporal decay (batched, not per-step)
+        self.bayesian.apply_decay_all(self.entries, self.step)
+
+        # Coreset replay with diminishing returns (after decay, so replay
+        # can counteract the decay that just happened)
         if self.use_coreset:
             self.coreset.replay(self.entries)
 

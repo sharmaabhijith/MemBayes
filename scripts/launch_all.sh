@@ -1,37 +1,73 @@
 #!/bin/bash
-# Launch all 6 systems as parallel SLURM jobs.
-# Each job runs independently and saves results to results/<system_name>.json
+# Launch systems as parallel background processes.
+# Each process writes to the same timestamped run directory.
 #
 # Usage: bash scripts/launch_all.sh
 
 set -e
 cd "$(dirname "$0")/.."
 
-mkdir -p slurm_logs results
+mkdir -p results
 
-# Generate benchmark first (if not already present)
-if [ ! -f results/benchmark.json ]; then
-    echo "Generating benchmark..."
-    export PATH="/apps/local/anaconda3/bin:$PATH"
-    set -a; source .env; set +a
-    python -u -m benchmark.generator --output results/benchmark.json
-    echo "Done."
-fi
+# Load environment
+set -a; source .env; set +a
+
+# Generate benchmark (always regenerate to pick up generator changes)
+echo "Generating expanded benchmark (H1-H14)..."
+python -u -m evaluation.generator --output results/benchmark.json
+echo "Done."
+
+# Create a shared timestamped run directory with logs subfolder
+RUN_DIR="results/run_$(date +%Y-%m-%d_%H-%M-%S)"
+LOG_DIR="${RUN_DIR}/logs"
+mkdir -p "${RUN_DIR}" "${LOG_DIR}"
 
 echo ""
-echo "Submitting 6 parallel jobs..."
-echo "==============================="
+echo "Launching parallel processes..."
+echo "==================================="
+echo "  Run directory: ${RUN_DIR}"
+echo ""
 
-SYSTEMS=("vcl" "vcl_no_coreset" "vcl_no_decay" "naive" "sliding_window" "decay_only")
+#SYSTEMS=("vcl" "vcl_no_coreset" "vcl_no_decay" "naive" "sliding_window" "decay_only")
+SYSTEMS=("vcl_no_decay")
+
+
 
 for sys in "${SYSTEMS[@]}"; do
-    JOB_ID=$(sbatch --job-name="mb-${sys}" --parsable scripts/run_single_system.sh "${sys}")
-    echo "  ${sys} -> Job ${JOB_ID}"
+    echo "  Starting ${sys}..."
+    bash scripts/run_single_system.sh "${sys}" --run-dir "${RUN_DIR}" > "${LOG_DIR}/${sys}.log" 2>&1 &
+    PIDS+=($!)
+    echo "  ${sys} -> PID $!"
 done
 
 echo ""
-echo "All jobs submitted. Monitor with: squeue -u $USER"
-echo "Results will be in: results/<system_name>_results.json"
+echo "All processes launched. Waiting for completion..."
+echo "Logs: ${LOG_DIR}/<system_name>.log"
 echo ""
-echo "After all jobs complete, run:"
-echo "  python -m benchmark.run_experiments --merge-only"
+
+# Wait for all and track failures
+FAILED=()
+for i in "${!SYSTEMS[@]}"; do
+    if wait "${PIDS[$i]}"; then
+        echo "  [DONE] ${SYSTEMS[$i]}"
+    else
+        echo "  [FAIL] ${SYSTEMS[$i]} (see ${LOG_DIR}/${SYSTEMS[$i]}.log)"
+        FAILED+=("${SYSTEMS[$i]}")
+    fi
+done
+
+echo ""
+if [ ${#FAILED[@]} -eq 0 ]; then
+    echo "All systems completed successfully."
+    echo "Results saved to: ${RUN_DIR}/"
+    echo ""
+    echo "To merge results and generate plots, run:"
+    echo "  python -m evaluation.runner --merge-only --run-dir ${RUN_DIR}"
+else
+    echo "Failed systems: ${FAILED[*]}"
+    echo "Check logs/ for details."
+    echo ""
+    echo "To merge results from successful systems, run:"
+    echo "  python -m evaluation.runner --merge-only --run-dir ${RUN_DIR}"
+    exit 1
+fi

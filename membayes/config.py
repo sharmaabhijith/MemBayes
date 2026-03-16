@@ -28,8 +28,8 @@ class VCLConfig:
     })
 
     # Evidence weights (log-odds increments = log likelihood ratios)
-    confirm_weight: float = 0.7       # w+: confirming evidence
-    contradict_weight: float = -1.0   # w-: contradicting evidence (|w-| > w+ by design)
+    confirm_weight: float = 1.0       # w+: confirming evidence (strong enough to resist decay)
+    contradict_weight: float = -1.2   # w-: contradicting evidence (|w-| > w+ by design)
 
     # Evidence strength multipliers: modulate w by LLM-assessed strength
     strength_multipliers: dict[str, float] = field(default_factory=lambda: {
@@ -42,21 +42,21 @@ class VCLConfig:
     kl_cap_base: float = 2.0     # Δ_base: max single-step log-odds change
     kl_cap_dampening: float = 0.15  # β: entrenchment resistance
 
-    # Decision boundary for value replacement
-    replacement_threshold: float = 0.5  # τ_replace: replace when σ(ℓ) < this
+    # Decision boundary for value replacement (lower = require more evidence)
+    replacement_threshold: float = 0.40  # τ_replace: replace when σ(ℓ) < this
 
     # ── Temporal Decay ────────────────────────────────────────────────────
     # Per-category base decay rates (λ_base)
     decay_rates: dict[str, float] = field(default_factory=lambda: {
-        "identity":   0.001,   # half-life ~693 steps
-        "preference": 0.008,   # half-life ~87 steps
-        "relational": 0.005,   # half-life ~139 steps
-        "episodic":   0.030,   # half-life ~23 steps
-        "transient":  0.100,   # half-life ~7 steps
+        "identity":   0.0003,  # half-life ~2310 steps (identity barely decays)
+        "preference": 0.002,   # half-life ~347 steps
+        "relational": 0.001,   # half-life ~693 steps
+        "episodic":   0.008,   # half-life ~87 steps
+        "transient":  0.030,   # half-life ~23 steps
     })
 
     # Access-modulated decay: λ_eff = λ_base · exp(-β_access · min(n_access, n_cap))
-    access_modulation_strength: float = 0.05  # β_access
+    access_modulation_strength: float = 0.15  # β_access (accessed memories resist decay)
     access_modulation_cap: int = 20           # n_cap
 
     # Decay thresholds
@@ -65,10 +65,10 @@ class VCLConfig:
     consolidation_threshold: float = 0.20  # τ_consol: eligible for merge
 
     # ── Coreset ───────────────────────────────────────────────────────────
-    coreset_size: int = 20                # |C|_max: episodic buffer capacity
-    coreset_replay_weight: float = 0.12   # w_c: base replay log-odds boost
+    coreset_size: int = 40                # |C|_max: episodic buffer capacity
+    coreset_replay_weight: float = 0.25   # w_c: base replay log-odds boost
     replay_interval: int = 10             # R: steps between replay cycles
-    replay_diminishing_rate: float = 0.1  # δ: replay returns decay
+    replay_diminishing_rate: float = 0.05 # δ: replay returns decay (slower diminishing)
 
     # Importance scoring weights for coreset eviction
     importance_weights: dict[str, float] = field(default_factory=lambda: {
